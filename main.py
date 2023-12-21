@@ -71,11 +71,11 @@ def main():
 
 	progress_data.sort(reverse=True)
 	undefined_progress_data.sort(key = lambda x: x[2], reverse=True)
-	currently_watching_data = progress_data + undefined_progress_data
+	displayable_data = progress_data + undefined_progress_data
 
-	for v in currently_watching_data:
+	for v in displayable_data[:5]: # Uses data to fill only the first 5 lines of Gist code.
 		longest_progress_string_length = max(longest_progress_string_length, len(v[0]))
-	for i, v in enumerate(currently_watching_data):
+	for i, v in enumerate(displayable_data[:5]):
 		progress_emoji = ""
 
 		if v[0].find("/?") != -1:
