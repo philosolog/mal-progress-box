@@ -8,7 +8,7 @@ github_token = os.environ["GH_TOKEN"]
 mal_username = os.environ["MAL_USERNAME"]
 content_type = os.environ["CONTENT_TYPE"]
 
-def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: Ensure the preparation of the Gist. TODO: Separate GitHub workflows for anime and manga.
+def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: Ensure the preparation of the Gist. # TODO: Separate GitHub workflows for anime and manga. # TODO: Debug issues with not updating when list has 0 elements?
 	request = requests.patch(
 		url = f"https://api.github.com/gists/{gist_id}",
 		headers = {
@@ -30,7 +30,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 	except requests.exceptions.HTTPError as errorMessage:
 		print(errorMessage)
 
-		return "Data retrival error."
+		return "Data retrieval error."
 def request_chunk(username, offset, type):
 	url = f"https://myanimelist.net/{type}list/{username}/load.json?status=7&offset={offset}"
 	resp = requests.get(url)
