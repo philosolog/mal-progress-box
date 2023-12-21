@@ -19,4 +19,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           MAL_USERNAME: ${{ secrets.MAL_USERNAME }}
           CONTENT_TYPE: ${{ secrets.CONTENT_TYPE }}
+          CONTENT_STATUS: ${{ secrets.CONTENT_STATUS }}
         run: python main.py

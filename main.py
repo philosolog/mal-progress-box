@@ -7,8 +7,21 @@ gist_id = os.environ["GIST_ID"]
 github_token = os.environ["GH_TOKEN"]
 mal_username = os.environ["MAL_USERNAME"]
 content_type = os.environ["CONTENT_TYPE"]
+content_status = os.environ["CONTENT_STATUS"]
 
 def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: Ensure the preparation of the Gist. # TODO: Separate GitHub workflows for anime and manga. # TODO: Debug issues with not updating when list has 0 elements?
+	content_status_normalized = ""
+
+	if content_status == "current":
+		if content_type == "anime":
+			content_status_normalized = "I'm currently watching"
+		elif content_type == "manga":
+			content_status_normalized = "I'm currently reading"
+	elif content_status == "completed" or content_status == "on-hold" or content_status == "dropped":
+		content_status_normalized = "I have " + content_status.replace("-", " ")
+	else:
+		print("Your CONTENT_STATUS repository secret has not been properly set.")
+
 	request = requests.patch(
 		url = f"https://api.github.com/gists/{gist_id}",
 		headers = {
@@ -16,7 +29,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 			"Accept": "application/json"
 		},
 		json = {
-			"description": f"🍖 MyAnimeList {content_type} progress",
+			"description": f"🍖 MyAnimeList {content_type} {content_status_normalized}",
 			"files": {
 				"From mal-progress-box": { # TODO: Find a way to dodge the unexpected input error. (I want to name the file properly and not leave it ambiguous.)
 					"content": message
