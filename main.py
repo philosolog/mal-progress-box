@@ -31,7 +31,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 
 		return "Data retrival error."
 def request_chunk(username, offset):
-	url = ("https://myanimelist.net/animelist/{username}/load.json?status=7&offset={offset}").format(username=username, offset=offset)
+	url = f"https://myanimelist.net/animelist/{username}/load.json?status=7&offset={offset}"
 	resp = requests.get(url)
 
 	if resp.status_code == 400:
