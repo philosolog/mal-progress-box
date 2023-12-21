@@ -44,9 +44,10 @@ def request_chunk(username, offset, type):
 def request_list(username):
 	all_entries = []
 	offset = 0
+	content_type = content_type
 
 	while True:
-		entries = request_chunk(username, offset)
+		entries = request_chunk(username, offset, content_type)
 		all_entries.extend(entries)
 
 		if len(entries) < 300:
