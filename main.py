@@ -36,17 +36,17 @@ def request_chunk(username, offset, type):
 	resp = requests.get(url)
 
 	if resp.status_code == 400:
-		print("List query error for {}.".format(username), file=sys.stderr)
+		print(f"List query error for {username}.\nCheck your repository keys.", file=sys.stderr)
 		print(resp.status_code, resp.text, file=sys.stderr)
 		sys.exit(1)
 
 	return resp.json()
-def request_list(username):
+def request_list(username, type):
 	all_entries = []
 	offset = 0
 
 	while True:
-		entries = request_chunk(username, offset, content_type)
+		entries = request_chunk(username, offset, type)
 		all_entries.extend(entries)
 
 		if len(entries) < 300:
@@ -57,7 +57,7 @@ def request_list(username):
 		offset += 300
 	return all_entries
 def main():
-	content = request_list(mal_username)
+	content = request_list(mal_username, content_type)
 	progress_data = []
 	undefined_progress_data = []
 	longest_progress_string_length = 0
