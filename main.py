@@ -4,27 +4,31 @@ import time
 import requests
 
 gist_id = os.environ["GIST_ID"]
-gh_token = os.environ["GH_TOKEN"]
+github_token = os.environ["GH_TOKEN"]
 mal_username = os.environ["MAL_USERNAME"]
 
-def update_gist(gh_token, gist_id, message): # TODO: Ensure the preparation of the Gist.
-	data = {
-		"description" : "",
-		"files" : {"🍖 MyAnimeList progress" : {"content" : message}}
-	}
+def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: Ensure the preparation of the Gist.
 	request = requests.patch(
-		url=f"https://api.github.com/gists/{gist_id}",
-		headers={
-			"Authorization": f"token {gh_token}",
+		url = f"https://api.github.com/gists/{gist_id}",
+		headers = {
+			"Authorization": f"token {github_token}",
 			"Accept": "application/json"
 		},
-		json=data
+		json = {
+			"description": "",
+			"files": {
+				"🍖 MyAnimeList progress_data": {
+					"content": message
+				}
+			}
+		}
 	)
 
 	try :
 		request.raise_for_status()
-	except requests.exceptions.HTTPError as e :
-		print(e)
+	except requests.exceptions.HTTPError as errorMessage:
+		print(errorMessage)
+
 		return "Data retrival error."
 def request_chunk(username, offset):
 	url = ("https://myanimelist.net/animelist/{username}/load.json?status=7&offset={offset}").format(username=username, offset=offset)
@@ -52,53 +56,50 @@ def request_animelist(username):
 		offset += 300
 	return all_entries
 def main():
-	# TODO: Add in-line auto-padding and shortening for longer undefined entries.
 	animelist = request_animelist(mal_username)
-	currently_watching = []
-	progress = []
-	undefined_progress = []
-	lines = []
-	message = ""
+	progress_data = []
+	undefined_progress_data = []
+	longest_progress_string_length = 0
+	gist_code = []
 
 	for i in range(10):
 		if animelist[i]["status"] == 1:
 			if animelist[i]["anime_num_episodes"] != 0:
-				progress.append([round(animelist[i]["num_watched_episodes"]/animelist[i]["anime_num_episodes"]*100), animelist[i]["anime_title"]])
+				progress_data.append([round(animelist[i]["num_watched_episodes"]/animelist[i]["anime_num_episodes"]*100), animelist[i]["anime_title"]])
 			else:
-				undefined_progress.append([str(animelist[i]["num_watched_episodes"]) + "/?", animelist[i]["anime_title"], animelist[i]["num_watched_episodes"]])
+				undefined_progress_data.append([str(animelist[i]["num_watched_episodes"]) + "/?", animelist[i]["anime_title"], animelist[i]["num_watched_episodes"]])
 
-	progress.sort(reverse=True)
-	undefined_progress.sort(key = lambda x: x[2], reverse=True)
-	currently_watching = progress + undefined_progress
+	progress_data.sort(reverse=True)
+	undefined_progress_data.sort(key = lambda x: x[2], reverse=True)
+	currently_watching_data = progress_data + undefined_progress_data
 
-	for i, v in enumerate(currently_watching):
-		title = (v[1][:37] + "...") if len(v[1]) > 40 else v[1]
+	for v in undefined_progress_data:
+		longest_progress_string_length = max(longest_progress_string_length, len(v[0]))
+	for i, v in enumerate(currently_watching_data):
+		line = ""
 
 		if type(v[0]) == str:
-			lines.append("🍳 " + str(v[0]) + ": " + title)
+			line = "🍳 " + v[0].rjust(longest_progress_string_length, " ") + ": " + v[1]
 		else:
-			status_emoji = ""
+			progress_emoji = ""
 
 			if v[0] >= 80:
-				status_emoji = "🍗 "
+				progress_emoji = "🍗 "
 			elif v[0] >= 60:
-				status_emoji = "🐔 "
+				progress_emoji = "🐔 "
 			elif v[0] >= 40:
-				status_emoji = "🐥 "
+				progress_emoji = "🐥 "
 			elif v[0] >= 20:
-				status_emoji = "🐣 "
+				progress_emoji = "🐣 "
 			elif v[0] >= 0:
-				status_emoji = "🥚 "
+				progress_emoji = "🥚 "
 
-			lines.append(status_emoji + str(v[0]) + "%" + ": " + title)
+			line = progress_emoji + str(v[0]).rjust(longest_progress_string_length, " ") + "%: " + v[1]
 
-	for i, v in enumerate(lines):
-		if i < len(lines) - 1:
-			message += v + "\n"
-		else:
-			message += v
+		truncated_line = (line[:47] + "...") if len(line) > 50 else line
+		gist_code.append(truncated_line)
 
-	update_gist(gh_token, gist_id, message)
+	update_gist(github_token, gist_id, ''.join(gist_code))
 
 if __name__ == "__main__":
 	main()
