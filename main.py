@@ -18,7 +18,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 		json = {
 			"description": "",
 			"files": {
-				f"🍖 MyAnimeList {content_type} progress": {
+				("🍖 MyAnimeList {} progress").format(content_type): {
 					"content": message
 				}
 			}
