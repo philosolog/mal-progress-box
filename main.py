@@ -8,7 +8,7 @@ github_token = os.environ["GH_TOKEN"]
 mal_username = os.environ["MAL_USERNAME"]
 content_type = os.environ["CONTENT_TYPE"]
 
-def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: Ensure the preparation of the Gist.
+def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: Ensure the preparation of the Gist. TODO: Separate GitHub workflows for anime and manga.
 	request = requests.patch(
 		url = f"https://api.github.com/gists/{gist_id}",
 		headers = {
@@ -91,7 +91,7 @@ def main():
 
 					undefined_progress_data.append([str(v[num_read_type[0]]) + num_read_type[1], v["manga_title"], v[num_read_type[0]]])
 			else:
-				print("Your CONTENT_TYPE repository secret is not properly set.", file=sys.stderr)
+				print("Your CONTENT_TYPE repository secret has not been properly set.", file=sys.stderr)
 
 	progress_data.sort(reverse=True)
 	undefined_progress_data.sort(key = lambda x: x[2], reverse=True)
