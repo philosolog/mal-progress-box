@@ -75,7 +75,7 @@ def main():
 
 	# Uses data to fill only the first 5 lines of Gist code.
 	for v in displayable_data[:5]:
-		test_length = (len(v[0])) if type(v[0]) == str else len(str(v[0]) + "%"))
+		test_length = (len(v[0])) if type(v[0]) == str else len(str(v[0]) + "%")
 
 		longest_progress_string_length = max(longest_progress_string_length, test_length)
 	for i, v in enumerate(displayable_data[:5]):
