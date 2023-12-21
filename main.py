@@ -63,33 +63,33 @@ def main():
 	longest_progress_string_length = 0
 	gist_code = []
 
-	for i in range(10):
-		if content[i]["status"] == 1:
+	for v in content:
+		if v["status"] == 1:
 			if content_type == "anime":
-				if content[i]["anime_num_episodes"] != 0:
-					progress_data.append([round(content[i]["num_watched_episodes"]/content[i]["anime_num_episodes"]*100), content[i]["anime_title"]])
+				if v["anime_num_episodes"] != 0:
+					progress_data.append([round(v["num_watched_episodes"]/v["anime_num_episodes"]*100), v["anime_title"]])
 				else:
-					undefined_progress_data.append([str(content[i]["num_watched_episodes"]) + " ep.", content[i]["anime_title"], content[i]["num_watched_episodes"]])
+					undefined_progress_data.append([str(v["num_watched_episodes"]) + " ep.", v["anime_title"], v["num_watched_episodes"]])
 			elif content_type == "manga":
-				if content[i]["anime_num_episodes"] != 0:
+				if v["anime_num_episodes"] != 0:
 					type_ratio = []
 
-					if content[i]["num_read_chapters"]/content[i]["manga_num_chapters"] > content[i]["num_read_chapters"]/content[i]["manga_num_volumes"]:
-						type_ratio = content[i]["num_read_chapters"]/content[i]["manga_num_chapters"]
+					if v["num_read_chapters"]/v["manga_num_chapters"] > v["num_read_chapters"]/v["manga_num_volumes"]:
+						type_ratio = v["num_read_chapters"]/v["manga_num_chapters"]
 					else:
-						type_ratio = content[i]["num_read_chapters"]/content[i]["manga_num_volumes"]
+						type_ratio = v["num_read_chapters"]/v["manga_num_volumes"]
 
-					progress_data.append([round(type_ratio*100), content[i]["anime_title"]])
+					progress_data.append([round(type_ratio*100), v["anime_title"]])
 				else:
 					# TODO: Properly handle ch. versus vol. for later sorting.
 					num_read_type = []
 
-					if content[i]["num_read_chapters"] > content[i]["num_read_volumes"]:
+					if v["num_read_chapters"] > v["num_read_volumes"]:
 						num_read_type = ["num_read_chapters", "ch."]
 					else:
 						num_read_type = ["num_read_volumes", "vol."]
 
-					undefined_progress_data.append([str(content[i][num_read_type[0]]) + num_read_type[1], content[i]["manga_title"], content[i][num_read_type[0]]])
+					undefined_progress_data.append([str(v[num_read_type[0]]) + num_read_type[1], v["manga_title"], v[num_read_type[0]]])
 			else:
 				print("Your CONTENT_TYPE repository secret is not properly set.", file=sys.stderr)
 
