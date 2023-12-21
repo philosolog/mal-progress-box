@@ -18,7 +18,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 		json = {
 			"description": "",
 			"files": {
-				"🍖 MyAnimeList progress": {
+				f"🍖 MyAnimeList {content_type} progress": {
 					"content": message
 				}
 			}
@@ -102,7 +102,7 @@ def main():
 		test_length = (len(v[0])) if type(v[0]) == str else len(str(v[0]) + "%")
 
 		longest_progress_string_length = max(longest_progress_string_length, test_length)
-	for i, v in enumerate(displayable_data[:5]):
+	for v in displayable_data[:5]:
 		progress_emoji = ""
 
 		if type(v[0]) == str:
