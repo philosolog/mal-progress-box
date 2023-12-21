@@ -6,6 +6,7 @@ import requests
 gist_id = os.environ["GIST_ID"]
 github_token = os.environ["GH_TOKEN"]
 mal_username = os.environ["MAL_USERNAME"]
+content_type = os.environ["CONTENT_TYPE"]
 
 def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: Ensure the preparation of the Gist.
 	request = requests.patch(
@@ -17,7 +18,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 		json = {
 			"description": "",
 			"files": {
-				"🍖 MyAnimeList progress": {
+				"🍖 Mycontent progress": {
 					"content": message
 				}
 			}
@@ -30,8 +31,8 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 		print(errorMessage)
 
 		return "Data retrival error."
-def request_chunk(username, offset):
-	url = f"https://myanimelist.net/animelist/{username}/load.json?status=7&offset={offset}"
+def request_chunk(username, offset, type):
+	url = f"https://mycontent.net/{type}list/{username}/load.json?status=7&offset={offset}"
 	resp = requests.get(url)
 
 	if resp.status_code == 400:
@@ -40,7 +41,7 @@ def request_chunk(username, offset):
 		sys.exit(1)
 
 	return resp.json()
-def request_animelist(username):
+def request_list(username):
 	all_entries = []
 	offset = 0
 
@@ -56,18 +57,41 @@ def request_animelist(username):
 		offset += 300
 	return all_entries
 def main():
-	animelist = request_animelist(mal_username)
+	content = request_list(mal_username)
 	progress_data = []
 	undefined_progress_data = []
 	longest_progress_string_length = 0
 	gist_code = []
 
 	for i in range(10):
-		if animelist[i]["status"] == 1:
-			if animelist[i]["anime_num_episodes"] != 0:
-				progress_data.append([round(animelist[i]["num_watched_episodes"]/animelist[i]["anime_num_episodes"]*100), animelist[i]["anime_title"]])
+		if content[i]["status"] == 1:
+			if content_type == "anime":
+				if content[i]["anime_num_episodes"] != 0:
+					progress_data.append([round(content[i]["num_watched_episodes"]/content[i]["anime_num_episodes"]*100), content[i]["anime_title"]])
+				else:
+					undefined_progress_data.append([str(content[i]["num_watched_episodes"]) + " ep.", content[i]["anime_title"], content[i]["num_watched_episodes"]])
+			elif content_type == "manga":
+				if content[i]["anime_num_episodes"] != 0:
+					type_ratio = []
+
+					if content[i]["num_read_chapters"]/content[i]["manga_num_chapters"] > content[i]["num_read_chapters"]/content[i]["manga_num_volumes"]:
+						type_ratio = content[i]["num_read_chapters"]/content[i]["manga_num_chapters"]
+					else:
+						type_ratio = content[i]["num_read_chapters"]/content[i]["manga_num_volumes"]
+
+					progress_data.append([round(type_ratio*100), content[i]["anime_title"]])
+				else:
+					# TODO: Properly handle ch. versus vol. for later sorting.
+					num_read_type = []
+
+					if content[i]["num_read_chapters"] > content[i]["num_read_volumes"]:
+						num_read_type = ["num_read_chapters", "ch."]
+					else:
+						num_read_type = ["num_read_volumes", "vol."]
+
+					undefined_progress_data.append([str(content[i][num_read_type[0]]) + num_read_type[1], content[i]["manga_title"], content[i][num_read_type[0]]])
 			else:
-				undefined_progress_data.append([str(animelist[i]["num_watched_episodes"]) + "/?", animelist[i]["anime_title"], animelist[i]["num_watched_episodes"]])
+				print("Your CONTENT_TYPE repository secret is not properly set.", file=sys.stderr)
 
 	progress_data.sort(reverse=True)
 	undefined_progress_data.sort(key = lambda x: x[2], reverse=True)
