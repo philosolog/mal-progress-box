@@ -18,7 +18,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 		json = {
 			"description": f"🍖 MyAnimeList {content_type} progress",
 			"files": {
-				"": { # TODO: Find a way to dodge the unexpected input error. (I want to name the file properly and not leave it ambiguous.)
+				"From mal-progress-box": { # TODO: Find a way to dodge the unexpected input error. (I want to name the file properly and not leave it ambiguous.)
 					"content": message
 				}
 			}
