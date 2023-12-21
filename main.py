@@ -18,7 +18,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 		json = {
 			"description": "",
 			"files": {
-				"🍖 Mycontent progress": {
+				"🍖 MyAnimeList progress": {
 					"content": message
 				}
 			}
@@ -32,7 +32,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 
 		return "Data retrival error."
 def request_chunk(username, offset, type):
-	url = f"https://mycontent.net/{type}list/{username}/load.json?status=7&offset={offset}"
+	url = f"https://myanimelist.net/{type}list/{username}/load.json?status=7&offset={offset}"
 	resp = requests.get(url)
 
 	if resp.status_code == 400:
