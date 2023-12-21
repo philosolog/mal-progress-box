@@ -78,7 +78,7 @@ def main():
 	for i, v in enumerate(currently_watching_data):
 		progress_emoji = ""
 
-		if v[0].find("/?"):
+		if v[0].find("/?") != -1:
 			progress_emoji = "🍳 "
 		elif v[0] >= 80:
 			progress_emoji = "🍗 "
@@ -93,7 +93,7 @@ def main():
 
 		line = progress_emoji + str(v[0]).rjust(longest_progress_string_length, " ") + ": " + v[1]
 		truncated_line = (line[:47] + "...") if len(line) > 50 else line
-		
+
 		gist_code.append(truncated_line)
 
 	update_gist(github_token, gist_id, '\n'.join(gist_code))
