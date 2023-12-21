@@ -98,7 +98,7 @@ def main():
 			v[0] = str(v[0]) + "%"
 
 		line = progress_emoji + v[0].rjust(longest_progress_string_length, " ") + ": " + v[1]
-		truncated_line = (line[:51] + "...") if len(line) > 55 else line
+		truncated_line = (line[:46] + "...") if len(line) > 50 else line
 
 		gist_code.append(truncated_line)
 
