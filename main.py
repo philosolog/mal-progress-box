@@ -65,6 +65,7 @@ def main():
 
 	for v in content:
 		if v["status"] == 1:
+			# TODO: Properly auto-adjust "-s." or "-." depending on the context.
 			if content_type == "anime":
 				if v["anime_num_episodes"] != 0:
 					progress_data.append([round(v["num_watched_episodes"]/v["anime_num_episodes"]*100), v["anime_title"]])
