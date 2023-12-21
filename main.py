@@ -22,7 +22,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 	else:
 		print("Your CONTENT_STATUS repository secret has not been properly set.")
 
-	file_name = f"🍖 MyAnimeList {content_type} {content_status_normalized}"
+	file_name = f"🍖 MAL {content_type} {content_status_normalized}"
 	request = requests.patch(
 		url = f"https://api.github.com/gists/{gist_id}",
 		headers = {
@@ -32,7 +32,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None: # TODO: 
 		json = {
 			"description": "",
 			"files": {
-				file_name: { # TODO: Find a way to dodge the unexpected input error. (I want to name the file properly and not leave it ambiguous.)
+				file_name: {
 					"content": message
 				}
 			}
