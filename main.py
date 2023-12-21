@@ -10,7 +10,7 @@ mal_username = os.environ["MAL_USERNAME"]
 def update_gist(gh_token, gist_id, message): # TODO: Ensure the preparation of the Gist.
 	data = {
 		"description" : "",
-		"files" : {"🍡 MyAnimeList progress" : {"content" : message}}
+		"files" : {"🍖 MyAnimeList progress" : {"content" : message}}
 	}
 	request = requests.patch(
 		url=f"https://api.github.com/gists/{gist_id}",
