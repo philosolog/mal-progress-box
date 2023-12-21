@@ -44,7 +44,6 @@ def request_chunk(username, offset, type):
 def request_list(username):
 	all_entries = []
 	offset = 0
-	content_type = content_type
 
 	while True:
 		entries = request_chunk(username, offset, content_type)
