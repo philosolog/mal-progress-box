@@ -65,7 +65,7 @@ def main():
 	for i in range(10):
 		if animelist[i]["status"] == 1:
 			if animelist[i]["anime_num_episodes"] != 0:
-				progress_data.append([str(round(animelist[i]["num_watched_episodes"]/animelist[i]["anime_num_episodes"]*100)) + "%", animelist[i]["anime_title"]])
+				progress_data.append([round(animelist[i]["num_watched_episodes"]/animelist[i]["anime_num_episodes"]*100), animelist[i]["anime_title"]])
 			else:
 				undefined_progress_data.append([str(animelist[i]["num_watched_episodes"]) + "/?", animelist[i]["anime_title"], animelist[i]["num_watched_episodes"]])
 
@@ -78,20 +78,23 @@ def main():
 	for i, v in enumerate(displayable_data[:5]):
 		progress_emoji = ""
 
-		if v[0].find("/?") != -1:
+		if type(v[0]) == str:
 			progress_emoji = "🍳 "
-		elif v[0] >= 80:
-			progress_emoji = "🍗 "
-		elif v[0] >= 60:
-			progress_emoji = "🐔 "
-		elif v[0] >= 40:
-			progress_emoji = "🐥 "
-		elif v[0] >= 20:
-			progress_emoji = "🐣 "
-		elif v[0] >= 0:
-			progress_emoji = "🥚 "
+		else:
+			if v[0] >= 80:
+				progress_emoji = "🍗 "
+			elif v[0] >= 60:
+				progress_emoji = "🐔 "
+			elif v[0] >= 40:
+				progress_emoji = "🐥 "
+			elif v[0] >= 20:
+				progress_emoji = "🐣 "
+			elif v[0] >= 0:
+				progress_emoji = "🥚 "
+			
+			v[0] = str(v[0]) + "%"
 
-		line = progress_emoji + str(v[0]).rjust(longest_progress_string_length, " ") + ": " + v[1]
+		line = progress_emoji + v[0].rjust(longest_progress_string_length, " ") + ": " + v[1]
 		truncated_line = (line[:47] + "...") if len(line) > 50 else line
 
 		gist_code.append(truncated_line)
