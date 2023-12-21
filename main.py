@@ -7,25 +7,25 @@ gist_id = os.environ["GIST_ID"]
 gh_token = os.environ["GH_TOKEN"]
 mal_username = os.environ["MAL_USERNAME"]
 
-def update_gist(gh_token, gist_id, message): # TODO: Prep the Gist.
-    data = {
-        "description" : "",
-        "files" : {"🍡 MyAnimeList progress" : {"content" : message}}
-    }
-    request = requests.patch(
-        url=f"https://api.github.com/gists/{gist_id}",
-        headers={
-            "Authorization": f"token {gh_token}",
-            "Accept": "application/json"
-        },
-        json=data
-    )
+def update_gist(gh_token, gist_id, message): # TODO: Ensure the preparation of the Gist.
+	data = {
+		"description" : "",
+		"files" : {"🍡 MyAnimeList progress" : {"content" : message}}
+	}
+	request = requests.patch(
+		url=f"https://api.github.com/gists/{gist_id}",
+		headers={
+			"Authorization": f"token {gh_token}",
+			"Accept": "application/json"
+		},
+		json=data
+	)
 
-    try :
-        request.raise_for_status()
-    except requests.exceptions.HTTPError as e :
-        print(e)
-        return "Data retrival error."
+	try :
+		request.raise_for_status()
+	except requests.exceptions.HTTPError as e :
+		print(e)
+		return "Data retrival error."
 def request_chunk(username, offset):
 	url = ("https://myanimelist.net/animelist/{username}/load.json?status=7&offset={offset}").format(username=username, offset=offset)
 	resp = requests.get(url)
@@ -72,13 +72,25 @@ def main():
 	currently_watching = progress + undefined_progress
 
 	for i, v in enumerate(currently_watching):
-		if 0 <= i <= 4:
-			title = (v[1][:42] + "...") if len(v[1]) > 45 else v[1]
+		title = (v[1][:37] + "...") if len(v[1]) > 40 else v[1]
 
-			if type(v[0]) == str:
-				lines.append(str(v[0]) + ": " + title)
-			else:
-				lines.append(str(v[0]) + "%" + ": " + title)
+		if type(v[0]) == str:
+			lines.append("🍳 " + str(v[0]) + ": " + title)
+		else:
+			status_emoji = ""
+
+			if v[0] >= 80:
+				status_emoji = "🍗 "
+			elif v[0] >= 60:
+				status_emoji = "🐔 "
+			elif v[0] >= 40:
+				status_emoji = "🐥 "
+			elif v[0] >= 20:
+				status_emoji = "🐣 "
+			elif v[0] >= 0:
+				status_emoji = "🥚 "
+
+			lines.append(status_emoji + str(v[0]) + "%" + ": " + title)
 
 	for i, v in enumerate(lines):
 		if i < len(lines) - 1:
