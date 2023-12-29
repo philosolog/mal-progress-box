@@ -84,7 +84,7 @@ def main():
 				if v["anime_num_episodes"] != 0:
 					progress_data.append([round(v["num_watched_episodes"]/v["anime_num_episodes"]*100), v["anime_title"]])
 				else:
-					undefined_progress_data.append([str(v["num_watched_episodes"]) + " ep.", v["anime_title"], v["num_watched_episodes"]])
+					undefined_progress_data.append(["Ep." + str(v["num_watched_episodes"]), v["anime_title"], v["num_watched_episodes"]])
 			elif content_type == "manga":
 				if v["anime_num_episodes"] != 0:
 					type_ratio = []
