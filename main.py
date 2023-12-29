@@ -84,7 +84,7 @@ def main():
 				if v["anime_num_episodes"] != 0:
 					progress_data.append([round(v["num_watched_episodes"]/v["anime_num_episodes"]*100), v["anime_title"]])
 				else:
-					undefined_progress_data.append(["Ep." + str(v["num_watched_episodes"]), v["anime_title"], v["num_watched_episodes"]])
+					undefined_progress_data.append(["Ep. " + str(v["num_watched_episodes"]), v["anime_title"], v["num_watched_episodes"]])
 			elif content_type == "manga":
 				if v["anime_num_episodes"] != 0:
 					type_ratio = []
@@ -100,11 +100,11 @@ def main():
 					num_read_type = []
 
 					if v["num_read_chapters"] > v["num_read_volumes"]:
-						num_read_type = ["num_read_chapters", "ch."]
+						num_read_type = ["num_read_chapters", "Ch. "]
 					else:
-						num_read_type = ["num_read_volumes", "vol."]
+						num_read_type = ["num_read_volumes", "Vol. "]
 
-					undefined_progress_data.append([str(v[num_read_type[0]]) + num_read_type[1], v["manga_title"], v[num_read_type[0]]])
+					undefined_progress_data.append([num_read_type[1] + str(v[num_read_type[0]]), v["manga_title"], v[num_read_type[0]]])
 			else:
 				print("Your CONTENT_TYPE repository secret has not been properly set.", file=sys.stderr)
 
