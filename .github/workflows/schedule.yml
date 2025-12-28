@@ -1,4 +1,6 @@
 name: Update Gist
+permissions:
+    contents: read
 on:
     schedule:
         - cron: "0 * * * *" # Run every hour
