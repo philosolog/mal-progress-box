@@ -1,23 +1,34 @@
 name: Update Gist
 on:
-  schedule:
-    - cron: "0 * * * *"
-  workflow_dispatch:
+    schedule:
+        - cron: "0 * * * *" # Run every hour
+    workflow_dispatch:
+
 jobs:
-  update-gist:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@main
+    update-gist:
+        runs-on: ubuntu-latest
+        steps:
+            - name: "Checkout"
+              uses: actions/checkout@v4
 
-      - name: "Pip install"
-        run: pip install -r requirements.txt
+            - name: "Install uv"
+              uses: astral-sh/setup-uv@v5
+              with:
+                  enable-cache: true
 
-      - name: "Update Gist"
-        env:
-          GIST_ID: ${{ secrets.GIST_ID }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          MAL_USERNAME: ${{ secrets.MAL_USERNAME }}
-          CONTENT_TYPE: ${{ secrets.CONTENT_TYPE }}
-          CONTENT_STATUS: ${{ secrets.CONTENT_STATUS }}
-        run: python main.py
+            - name: "Set up Python"
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.14"
+
+            - name: "Install dependencies"
+              run: uv sync
+
+            - name: "Update Gist"
+              env:
+                  GIST_ID: ${{ secrets.GIST_ID }}
+                  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+                  MAL_USERNAME: ${{ secrets.MAL_USERNAME }}
+                  CONTENT_TYPE: ${{ secrets.CONTENT_TYPE }}
+                  CONTENT_STATUS: ${{ secrets.CONTENT_STATUS }}
+              run: uv run python main.py
