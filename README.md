@@ -33,8 +33,8 @@
 
 2. **Create a GitHub Personal Access Token**
 
-   - Go to Settings → Developer settings → Personal access tokens → Tokens (classic)
-   - Generate a new token with `gist` scope
+   - Go to Settings → Developer settings → Personal access tokens → Fine-grained tokens
+   - Generate a new token with **Gists: Read and write** permission
    - Copy the token
 
 3. **Configure Repository Secrets**

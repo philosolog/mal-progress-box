@@ -28,7 +28,6 @@ env/
 
 # uv
 .uv/
-uv.lock
 
 # Type checking
 .mypy_cache/
@@ -47,3 +46,6 @@ dmypy.json
 
 # Rate limiting state
 .last_update_time
+
+# Miscellaneous
+archive

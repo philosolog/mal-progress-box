@@ -122,11 +122,14 @@ def request_chunk(username: str, offset: int, content_type: str) -> list[MALEntr
 	url = (
 		f"https://myanimelist.net/{content_type}list/{username}/load.json?status=7&offset={offset}"
 	)
-	resp = requests.get(url, timeout=30)
+	headers = {
+		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	}
+	resp = requests.get(url, headers=headers, timeout=30)
 
 	if resp.status_code == 400:
 		print(
-			f"List query error for {username}.\nCheck your repository keys.",
+			f"List query error for {username}.\nCheck your MAL_USERNAME secret.",
 			file=sys.stderr,
 		)
 		print(resp.status_code, resp.text, file=sys.stderr)
