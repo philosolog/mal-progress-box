@@ -108,38 +108,10 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None:
 		sys.exit(1)
 
 
-def request_chunk(username: str, offset: int, content_type: str) -> list[MALEntry]:
-	"""Request a chunk of entries from MyAnimeList.
-
-	Args:
-		username: MyAnimeList username
-		offset: Offset for pagination
-		content_type: Type of content ('anime' or 'manga')
-
-	Returns:
-		List of MAL entries
-	"""
-	url = (
-		f"https://myanimelist.net/{content_type}list/{username}/load.json?status=7&offset={offset}"
-	)
-	headers = {
-		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-	}
-	resp = requests.get(url, headers=headers, timeout=30)
-
-	if resp.status_code == 400:
-		print(
-			f"List query error for {username}.\nCheck your MAL_USERNAME secret.",
-			file=sys.stderr,
-		)
-		print(resp.status_code, resp.text, file=sys.stderr)
-		sys.exit(1)
-
-	return resp.json()
-
-
-def request_list(username: str, content_type: str) -> list[MALEntry]:
+def request_list_graphql(username: str, content_type: str) -> list[MALEntry]:
 	"""Request all entries from a MyAnimeList user's list.
+
+	Uses session cookies from the list page to authenticate the API request.
 
 	Args:
 		username: MyAnimeList username
@@ -149,16 +121,57 @@ def request_list(username: str, content_type: str) -> list[MALEntry]:
 		Complete list of MAL entries
 	"""
 	all_entries: list[MALEntry] = []
-	offset = 0
 
+	headers = {
+		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+		"Accept": "application/json",
+		"Referer": f"https://myanimelist.net/{content_type}list/{username}",
+	}
+
+	# First, visit the list page to get session cookies
+	session_url = f"https://myanimelist.net/{content_type}list/{username}"
+	session_resp = requests.get(session_url, headers=headers, timeout=30)
+
+	if session_resp.status_code == 404:
+		print(f"User '{username}' not found on MyAnimeList.", file=sys.stderr)
+		sys.exit(1)
+
+	# Extract cookies from the session
+	cookies = session_resp.cookies
+
+	# Now try the load.json with session cookies
+	offset = 0
 	while True:
-		entries = request_chunk(username, offset, content_type)
+		json_url = f"https://myanimelist.net/{content_type}list/{username}/load.json?status=7&offset={offset}"
+		resp = requests.get(json_url, headers=headers, cookies=cookies, timeout=30)
+
+		if resp.status_code == 400:
+			# If still failing, the API might have changed completely
+			print(f"Debug: URL = {json_url}", file=sys.stderr)
+			print(f"Debug: Status = {resp.status_code}", file=sys.stderr)
+			print(f"Debug: Response = {resp.text[:500]}", file=sys.stderr)
+			print(
+				f"List query error for {username}.\nThe MAL API may have changed.",
+				file=sys.stderr,
+			)
+			sys.exit(1)
+
+		if not resp.ok:
+			print(f"API error: {resp.status_code} {resp.text}", file=sys.stderr)
+			sys.exit(1)
+
+		try:
+			entries = resp.json()
+		except requests.exceptions.JSONDecodeError:
+			print(f"Failed to parse JSON response: {resp.text[:500]}", file=sys.stderr)
+			sys.exit(1)
+
 		all_entries.extend(entries)
 
 		if len(entries) < 300:
 			break
 
-		time.sleep(3)
+		time.sleep(1)
 		offset += 300
 
 	return all_entries
@@ -204,7 +217,7 @@ def main() -> None:
 		print("Skipping update due to rate limit.")
 		sys.exit(0)
 
-	content = request_list(MAL_USERNAME, CONTENT_TYPE)
+	content = request_list_graphql(MAL_USERNAME, CONTENT_TYPE)
 	progress_data: list[tuple[int, str]] = []
 	undefined_progress_data: list[tuple[str, str, int]] = []
 
