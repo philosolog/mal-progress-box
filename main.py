@@ -31,6 +31,13 @@ MAL_USERNAME = os.environ["MAL_USERNAME"]
 CONTENT_TYPE = os.environ["CONTENT_TYPE"]
 CONTENT_STATUS = os.environ["CONTENT_STATUS"]
 
+# Debug: Print environment variable info (lengths, not values for security)
+print(f"Debug: MAL_USERNAME length = {len(MAL_USERNAME)}, value = '{MAL_USERNAME}'")
+print(f"Debug: CONTENT_TYPE = '{CONTENT_TYPE}'")
+print(f"Debug: CONTENT_STATUS = '{CONTENT_STATUS}'")
+print(f"Debug: GIST_ID length = {len(GIST_ID)}")
+print(f"Debug: GH_TOKEN length = {len(GITHUB_TOKEN)}")
+
 # Rate limiting configuration
 RATE_LIMIT_FILE = Path(".last_update_time")
 RATE_LIMIT_HOURS = 1
@@ -108,73 +115,134 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None:
 		sys.exit(1)
 
 
-def request_list_graphql(username: str, content_type: str) -> list[MALEntry]:
-	"""Request all entries from a MyAnimeList user's list.
+def request_list_mal_api(
+	username: str,
+	content_type: str,
+	mal_client_id: str,
+	access_token: str | None = None,
+) -> list[MALEntry]:
+	"""Request anime/manga entries from MAL's official API v2.
 
-	Uses session cookies from the list page to authenticate the API request.
+	Uses MAL API v2 with either:
+	- client_auth (X-MAL-CLIENT-ID header) for public lists
+	- OAuth Bearer token for private lists (when access_token is provided)
+
+	API docs: https://myanimelist.net/apiconfig/references/api/v2
 
 	Args:
 		username: MyAnimeList username
 		content_type: Type of content ('anime' or 'manga')
+		mal_client_id: MAL API Client ID
+		access_token: Optional OAuth access token for private list access
 
 	Returns:
-		Complete list of MAL entries
+		List of MAL entries from the API
 	"""
+	auth_mode = "OAuth" if access_token else "Client ID"
+	print(f"Fetching {content_type} list for user: {username} (using MAL API - {auth_mode})")
+	print(f"Debug: MAL_CLIENT_ID length = {len(mal_client_id)}")
+
+	# MAL API v2 endpoint
+	base_url = f"https://api.myanimelist.net/v2/users/{username}/{content_type}list"
+
+	# Use OAuth Bearer token if available, otherwise use Client ID
+	if access_token:
+		headers = {
+			"Authorization": f"Bearer {access_token}",
+			"Accept": "application/json",
+		}
+	else:
+		headers = {
+			"X-MAL-CLIENT-ID": mal_client_id,
+			"Accept": "application/json",
+		}
+
+	# Fields to request from the API
+	if content_type == "anime":
+		fields = "list_status,num_episodes"
+	else:
+		fields = "list_status,num_chapters,num_volumes"
+
 	all_entries: list[MALEntry] = []
-
-	headers = {
-		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-		"Accept": "application/json",
-		"Referer": f"https://myanimelist.net/{content_type}list/{username}",
-	}
-
-	# First, visit the list page to get session cookies
-	session_url = f"https://myanimelist.net/{content_type}list/{username}"
-	session_resp = requests.get(session_url, headers=headers, timeout=30)
-
-	if session_resp.status_code == 404:
-		print(f"User '{username}' not found on MyAnimeList.", file=sys.stderr)
-		sys.exit(1)
-
-	# Extract cookies from the session
-	cookies = session_resp.cookies
-
-	# Now try the load.json with session cookies
 	offset = 0
-	while True:
-		json_url = f"https://myanimelist.net/{content_type}list/{username}/load.json?status=7&offset={offset}"
-		resp = requests.get(json_url, headers=headers, cookies=cookies, timeout=30)
+	limit = 100  # Max is 1000, but smaller batches are more reliable
 
-		if resp.status_code == 400:
-			# If still failing, the API might have changed completely
-			print(f"Debug: URL = {json_url}", file=sys.stderr)
-			print(f"Debug: Status = {resp.status_code}", file=sys.stderr)
-			print(f"Debug: Response = {resp.text[:500]}", file=sys.stderr)
-			print(
-				f"List query error for {username}.\nThe MAL API may have changed.",
-				file=sys.stderr,
-			)
+	while True:
+		params: dict[str, str | int] = {
+			"fields": fields,
+			"limit": limit,
+			"offset": offset,
+		}
+
+		resp = requests.get(base_url, headers=headers, params=params, timeout=30)
+
+		if resp.status_code == 401:
+			print("Error: Invalid MAL_CLIENT_ID. Please check your API credentials.", file=sys.stderr)
+			sys.exit(1)
+
+		if resp.status_code == 403:
+			print(f"Error: Access forbidden. User '{username}' may have a private list.", file=sys.stderr)
+			sys.exit(1)
+
+		if resp.status_code == 404:
+			print(f"Error: User '{username}' not found on MyAnimeList.", file=sys.stderr)
 			sys.exit(1)
 
 		if not resp.ok:
-			print(f"API error: {resp.status_code} {resp.text}", file=sys.stderr)
+			print(f"MAL API error: {resp.status_code} {resp.text}", file=sys.stderr)
 			sys.exit(1)
 
-		try:
-			entries = resp.json()
-		except requests.exceptions.JSONDecodeError:
-			print(f"Failed to parse JSON response: {resp.text[:500]}", file=sys.stderr)
-			sys.exit(1)
+		data = resp.json()
+		items = data.get("data", [])
 
-		all_entries.extend(entries)
-
-		if len(entries) < 300:
+		if not items:
 			break
 
-		time.sleep(1)
-		offset += 300
+		# Convert MAL API v2 format to our MALEntry format
+		for item in items:
+			node = item.get("node", {})
+			list_status = item.get("list_status", {})
 
+			# Map API status to our status integer
+			status_str = list_status.get("status", "")
+			status_int = 1 if status_str in ["watching", "reading"] else 2
+
+			if content_type == "anime":
+				normalized: MALEntry = {
+					"status": status_int,
+					"anime_title": node.get("title", ""),
+					"anime_num_episodes": node.get("num_episodes", 0) or 0,
+					"num_watched_episodes": list_status.get("num_episodes_watched", 0),
+					"manga_num_chapters": 0,
+					"manga_num_volumes": 0,
+					"num_read_chapters": 0,
+					"num_read_volumes": 0,
+				}
+			else:
+				normalized = {
+					"status": status_int,
+					"anime_title": node.get("title", ""),
+					"anime_num_episodes": 0,
+					"num_watched_episodes": 0,
+					"manga_num_chapters": node.get("num_chapters", 0) or 0,
+					"manga_num_volumes": node.get("num_volumes", 0) or 0,
+					"num_read_chapters": list_status.get("num_chapters_read", 0),
+					"num_read_volumes": list_status.get("num_volumes_read", 0),
+				}
+
+			all_entries.append(normalized)
+
+		# Check for next page
+		paging = data.get("paging", {})
+		if "next" not in paging:
+			break
+
+		offset += limit
+		time.sleep(0.5)  # Be nice to the API
+
+	print(f"Found {len(all_entries)} {content_type} entries from MAL API.")
 	return all_entries
+
 
 
 def format_progress_line(progress: str | int, title: str, longest_length: int) -> str:
@@ -217,7 +285,21 @@ def main() -> None:
 		print("Skipping update due to rate limit.")
 		sys.exit(0)
 
-	content = request_list_graphql(MAL_USERNAME, CONTENT_TYPE)
+	# Get MAL API credentials
+	mal_client_id = os.environ.get("MAL_CLIENT_ID")
+	if not mal_client_id:
+		print("Error: MAL_CLIENT_ID environment variable is required.", file=sys.stderr)
+		print("Please create a MAL API application at https://myanimelist.net/apiconfig", file=sys.stderr)
+		sys.exit(1)
+
+	# Optional: OAuth access token for private list access
+	access_token = os.environ.get("MAL_ACCESS_TOKEN")
+	if access_token:
+		print("Using OAuth access token for private list access.")
+	else:
+		print("Using Client ID only (public lists).")
+
+	content = request_list_mal_api(MAL_USERNAME, CONTENT_TYPE, mal_client_id, access_token)
 	progress_data: list[tuple[int, str]] = []
 	undefined_progress_data: list[tuple[str, str, int]] = []
 
