@@ -181,11 +181,17 @@ def request_list_mal_api(
 		resp = requests.get(base_url, headers=headers, params=params, timeout=30)
 
 		if resp.status_code == 401:
-			print("Error: Invalid MAL_CLIENT_ID. Please check your API credentials.", file=sys.stderr)
+			print(f"Error: 401 Unauthorized - {resp.text}", file=sys.stderr)
+			if access_token:
+				print("Your MAL_ACCESS_TOKEN is invalid or expired.", file=sys.stderr)
+				print("OAuth tokens expire after a certain period. You may need to refresh it.", file=sys.stderr)
+			else:
+				print("Your MAL_CLIENT_ID is invalid.", file=sys.stderr)
 			sys.exit(1)
 
 		if resp.status_code == 403:
-			print(f"Error: Access forbidden. User '{username}' may have a private list.", file=sys.stderr)
+			print(f"Error: 403 Forbidden - {resp.text}", file=sys.stderr)
+			print(f"User '{username}' may have a private list. Use OAuth for private list access.", file=sys.stderr)
 			sys.exit(1)
 
 		if resp.status_code == 404:
