@@ -118,7 +118,7 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None:
 def request_list_mal_api(
 	username: str,
 	content_type: str,
-	mal_client_id: str,
+	mal_client_id: str | None,
 	access_token: str | None = None,
 ) -> list[MALEntry]:
 	"""Request anime/manga entries from MAL's official API v2.
@@ -132,15 +132,16 @@ def request_list_mal_api(
 	Args:
 		username: MyAnimeList username
 		content_type: Type of content ('anime' or 'manga')
-		mal_client_id: MAL API Client ID
-		access_token: Optional OAuth access token for private list access
+		mal_client_id: MAL API Client ID (optional if using OAuth)
+		access_token: OAuth access token for private list access
 
 	Returns:
 		List of MAL entries from the API
 	"""
 	auth_mode = "OAuth" if access_token else "Client ID"
 	print(f"Fetching {content_type} list for user: {username} (using MAL API - {auth_mode})")
-	print(f"Debug: MAL_CLIENT_ID length = {len(mal_client_id)}")
+	if mal_client_id:
+		print(f"Debug: MAL_CLIENT_ID length = {len(mal_client_id)}")
 
 	# MAL API v2 endpoint
 	base_url = f"https://api.myanimelist.net/v2/users/{username}/{content_type}list"
@@ -151,11 +152,14 @@ def request_list_mal_api(
 			"Authorization": f"Bearer {access_token}",
 			"Accept": "application/json",
 		}
-	else:
+	elif mal_client_id:
 		headers = {
 			"X-MAL-CLIENT-ID": mal_client_id,
 			"Accept": "application/json",
 		}
+	else:
+		print("Error: No authentication method available.", file=sys.stderr)
+		sys.exit(1)
 
 	# Fields to request from the API
 	if content_type == "anime":
@@ -287,17 +291,19 @@ def main() -> None:
 
 	# Get MAL API credentials
 	mal_client_id = os.environ.get("MAL_CLIENT_ID")
-	if not mal_client_id:
-		print("Error: MAL_CLIENT_ID environment variable is required.", file=sys.stderr)
-		print("Please create a MAL API application at https://myanimelist.net/apiconfig", file=sys.stderr)
+	access_token = os.environ.get("MAL_ACCESS_TOKEN")
+
+	# Require at least one authentication method
+	if not mal_client_id and not access_token:
+		print("Error: Either MAL_CLIENT_ID or MAL_ACCESS_TOKEN is required.", file=sys.stderr)
+		print("- MAL_CLIENT_ID: For public list access (get from https://myanimelist.net/apiconfig)", file=sys.stderr)
+		print("- MAL_ACCESS_TOKEN: For private list access (OAuth token)", file=sys.stderr)
 		sys.exit(1)
 
-	# Optional: OAuth access token for private list access
-	access_token = os.environ.get("MAL_ACCESS_TOKEN")
 	if access_token:
-		print("Using OAuth access token for private list access.")
+		print("Using OAuth access token (private list access supported).")
 	else:
-		print("Using Client ID only (public lists).")
+		print("Using Client ID only (public lists only).")
 
 	content = request_list_mal_api(MAL_USERNAME, CONTENT_TYPE, mal_client_id, access_token)
 	progress_data: list[tuple[int, str]] = []
