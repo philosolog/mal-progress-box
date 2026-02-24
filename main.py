@@ -99,6 +99,32 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None:
 		return
 
 	file_name = f"🍖 MAL {CONTENT_TYPE} {content_status_normalized}"
+	
+	# First, fetch the current gist content to check if it has changed
+	get_resp = requests.get(
+		url=f"https://api.github.com/gists/{gist_id}",
+		headers={"Authorization": f"token {github_token}", "Accept": "application/json"},
+		timeout=30,
+	)
+	
+	try:
+		get_resp.raise_for_status()
+		current_gist = get_resp.json()
+		current_files = current_gist.get("files", {})
+		
+		# Check if the file exists and has the same content
+		if file_name in current_files:
+			current_content = current_files[file_name].get("content", "")
+			if current_content == message:
+				print(f"No changes detected in gist content. Skipping update.")
+				return
+		
+		print(f"Changes detected. Updating gist...")
+	except requests.exceptions.HTTPError as error_message:
+		print(f"Warning: Could not fetch current gist content: {error_message}")
+		print("Proceeding with update anyway...")
+	
+	# Update the gist with new content
 	resp = requests.patch(
 		url=f"https://api.github.com/gists/{gist_id}",
 		headers={"Authorization": f"token {github_token}", "Accept": "application/json"},
