@@ -32,7 +32,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           MAL_USERNAME: ${{ secrets.MAL_USERNAME }}
           MAL_CLIENT_ID: ${{ secrets.MAL_CLIENT_ID }}
+          MAL_CLIENT_SECRET: ${{ secrets.MAL_CLIENT_SECRET }}
+          MAL_REFRESH_TOKEN: ${{ secrets.MAL_REFRESH_TOKEN }}
           MAL_ACCESS_TOKEN: ${{ secrets.MAL_ACCESS_TOKEN }}
+          MAL_CLIENT_AUTH_METHOD: ${{ secrets.MAL_CLIENT_AUTH_METHOD }}
           CONTENT_TYPE: ${{ secrets.CONTENT_TYPE }}
           CONTENT_STATUS: ${{ secrets.CONTENT_STATUS }}
         run: uv run python main.py

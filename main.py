@@ -7,6 +7,7 @@ with the top 5 entries. Includes rate limiting to prevent updates more than once
 import os
 import sys
 import time
+import base64
 from pathlib import Path
 from typing import TypedDict
 import requests
@@ -280,6 +281,83 @@ def request_list_mal_api(
 	return all_entries
 
 
+def refresh_mal_access_token(
+	mal_client_id: str,
+	mal_refresh_token: str,
+	mal_client_secret: str | None = None,
+	mal_client_auth_method: str = "auto",
+) -> str:
+	"""Exchange a refresh token for a fresh MAL access token."""
+	print("Refreshing MAL access token using MAL_REFRESH_TOKEN.")
+
+	data = {
+		"grant_type": "refresh_token",
+		"refresh_token": mal_refresh_token,
+	}
+	headers = {
+		"Accept": "application/json",
+		"Content-Type": "application/x-www-form-urlencoded",
+	}
+
+	def send_with_body() -> requests.Response:
+		body = {"client_id": mal_client_id, **data}
+		if mal_client_secret:
+			body["client_secret"] = mal_client_secret
+		return requests.post(
+			"https://myanimelist.net/v1/oauth2/token",
+			data=body,
+			headers=headers,
+			timeout=30,
+		)
+
+	def send_with_basic() -> requests.Response:
+		if not mal_client_secret:
+			print("Error: MAL_CLIENT_SECRET is required for basic client auth.", file=sys.stderr)
+			sys.exit(1)
+		credentials = base64.b64encode(
+			f"{mal_client_id}:{mal_client_secret}".encode("utf-8")
+		).decode("ascii")
+		return requests.post(
+			"https://myanimelist.net/v1/oauth2/token",
+			data=data,
+			headers={
+				**headers,
+				"Authorization": f"Basic {credentials}",
+			},
+			timeout=30,
+		)
+
+	# MAL docs describe both request-body and HTTP Basic client auth at the token endpoint.
+	if mal_client_auth_method == "body":
+		resp = send_with_body()
+	elif mal_client_auth_method == "basic":
+		resp = send_with_basic()
+	else:
+		resp = send_with_body()
+		if resp.status_code == 401 and mal_client_secret:
+			resp = send_with_basic()
+
+	if resp.status_code == 401:
+		print("Error: MAL refresh credentials were rejected.", file=sys.stderr)
+		sys.exit(1)
+
+	if not resp.ok:
+		print(f"MAL token refresh error: {resp.status_code} {resp.text}", file=sys.stderr)
+		sys.exit(1)
+
+	payload = resp.json()
+	access_token = payload.get("access_token")
+	if not access_token:
+		print("Error: MAL refresh response did not include an access_token.", file=sys.stderr)
+		sys.exit(1)
+
+	new_refresh_token = payload.get("refresh_token")
+	if new_refresh_token:
+		print("Received a rotated MAL refresh token. Update your MAL_REFRESH_TOKEN secret.")
+
+	return access_token
+
+
 
 def format_progress_line(progress: str | int, title: str, longest_length: int) -> str:
 	"""Format a single progress line with emoji and padding.
@@ -324,15 +402,31 @@ def main() -> None:
 	# Get MAL API credentials
 	mal_client_id = os.environ.get("MAL_CLIENT_ID")
 	access_token = os.environ.get("MAL_ACCESS_TOKEN")
+	mal_refresh_token = os.environ.get("MAL_REFRESH_TOKEN")
+	mal_client_secret = os.environ.get("MAL_CLIENT_SECRET")
+	mal_client_auth_method = os.environ.get("MAL_CLIENT_AUTH_METHOD", "auto")
 
 	# Require at least one authentication method
-	if not mal_client_id and not access_token:
-		print("Error: Either MAL_CLIENT_ID or MAL_ACCESS_TOKEN is required.", file=sys.stderr)
-		print("- MAL_CLIENT_ID: For public list access (get from https://myanimelist.net/apiconfig)", file=sys.stderr)
-		print("- MAL_ACCESS_TOKEN: For private list access (OAuth token)", file=sys.stderr)
+	if not access_token and not (mal_client_id and mal_refresh_token) and not mal_client_id:
+		print(
+			"Error: Provide one of MAL_ACCESS_TOKEN, or MAL_CLIENT_ID, or "
+			"MAL_CLIENT_ID + MAL_REFRESH_TOKEN for private-list access.",
+			file=sys.stderr,
+		)
 		sys.exit(1)
 
-	if access_token:
+	if mal_refresh_token:
+		if not mal_client_id:
+			print("Error: MAL_REFRESH_TOKEN requires MAL_CLIENT_ID.", file=sys.stderr)
+			sys.exit(1)
+		access_token = refresh_mal_access_token(
+			mal_client_id=mal_client_id,
+			mal_refresh_token=mal_refresh_token,
+			mal_client_secret=mal_client_secret,
+			mal_client_auth_method=mal_client_auth_method,
+		)
+		print("Using a freshly refreshed OAuth access token.")
+	elif access_token:
 		print("Using OAuth access token (private list access supported).")
 	else:
 		print("Using Client ID only (public lists only).")
