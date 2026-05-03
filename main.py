@@ -26,6 +26,15 @@ class MALEntry(TypedDict):
 
 
 # Environment variables
+REQUIRED_ENV_VARS = ("GIST_ID", "GH_TOKEN", "MAL_USERNAME", "CONTENT_TYPE", "CONTENT_STATUS")
+missing_env_vars = [name for name in REQUIRED_ENV_VARS if not os.environ.get(name)]
+if missing_env_vars:
+	print(
+		f"Error: Missing required environment variables: {', '.join(missing_env_vars)}",
+		file=sys.stderr,
+	)
+	sys.exit(1)
+
 GIST_ID = os.environ["GIST_ID"]
 GITHUB_TOKEN = os.environ["GH_TOKEN"]
 MAL_USERNAME = os.environ["MAL_USERNAME"]
@@ -33,7 +42,7 @@ CONTENT_TYPE = os.environ["CONTENT_TYPE"]
 CONTENT_STATUS = os.environ["CONTENT_STATUS"]
 
 # Debug: Print environment variable info (lengths, not values for security)
-print(f"Debug: MAL_USERNAME length = {len(MAL_USERNAME)}, value = '{MAL_USERNAME}'")
+print(f"Debug: MAL_USERNAME length = {len(MAL_USERNAME)}")
 print(f"Debug: CONTENT_TYPE = '{CONTENT_TYPE}'")
 print(f"Debug: CONTENT_STATUS = '{CONTENT_STATUS}'")
 print(f"Debug: GIST_ID length = {len(GIST_ID)}")
@@ -42,6 +51,34 @@ print(f"Debug: GH_TOKEN length = {len(GITHUB_TOKEN)}")
 # Rate limiting configuration
 RATE_LIMIT_FILE = Path(".last_update_time")
 RATE_LIMIT_HOURS = 1
+MAL_TOKEN_URL = "https://myanimelist.net/v1/oauth2/token"
+
+
+def token_error_detail(resp: requests.Response) -> str:
+	"""Return a short, token-safe error detail from MAL's token endpoint."""
+	try:
+		payload = resp.json()
+	except ValueError:
+		text = resp.text.strip()
+		return text[:300] if text else "No response body."
+
+	parts = []
+	for key in ("error", "message", "hint", "error_description"):
+		value = payload.get(key)
+		if value:
+			parts.append(f"{key}={value!r}")
+
+	return "; ".join(parts) if parts else "No error detail in response."
+
+
+def print_token_attempts(attempts: list[tuple[str, requests.Response]]) -> None:
+	"""Print token endpoint attempts without exposing submitted credentials."""
+	print("MAL token endpoint attempts:", file=sys.stderr)
+	for name, resp in attempts:
+		print(
+			f"- {name}: HTTP {resp.status_code}; {token_error_detail(resp)}",
+			file=sys.stderr,
+		)
 
 
 def check_rate_limit() -> bool:
@@ -117,10 +154,10 @@ def update_gist(github_token: str, gist_id: str, message: str) -> None:
 		if file_name in current_files:
 			current_content = current_files[file_name].get("content", "")
 			if current_content == message:
-				print(f"No changes detected in gist content. Skipping update.")
+				print("No changes detected in gist content. Skipping update.")
 				return
 		
-		print(f"Changes detected. Updating gist...")
+		print("Changes detected. Updating gist...")
 	except requests.exceptions.HTTPError as error_message:
 		print(f"Warning: Could not fetch current gist content: {error_message}")
 		print("Proceeding with update anyway...")
@@ -298,13 +335,14 @@ def refresh_mal_access_token(
 		"Accept": "application/json",
 		"Content-Type": "application/x-www-form-urlencoded",
 	}
+	attempts: list[tuple[str, requests.Response]] = []
 
-	def send_with_body() -> requests.Response:
+	def send_with_body(include_secret: bool) -> requests.Response:
 		body = {"client_id": mal_client_id, **data}
-		if mal_client_secret:
+		if include_secret and mal_client_secret:
 			body["client_secret"] = mal_client_secret
 		return requests.post(
-			"https://myanimelist.net/v1/oauth2/token",
+			MAL_TOKEN_URL,
 			data=body,
 			headers=headers,
 			timeout=30,
@@ -318,7 +356,7 @@ def refresh_mal_access_token(
 			f"{mal_client_id}:{mal_client_secret}".encode("utf-8")
 		).decode("ascii")
 		return requests.post(
-			"https://myanimelist.net/v1/oauth2/token",
+			MAL_TOKEN_URL,
 			data=data,
 			headers={
 				**headers,
@@ -327,22 +365,42 @@ def refresh_mal_access_token(
 			timeout=30,
 		)
 
+	def record_attempt(name: str, resp: requests.Response) -> requests.Response:
+		attempts.append((name, resp))
+		return resp
+
 	# MAL docs describe both request-body and HTTP Basic client auth at the token endpoint.
 	if mal_client_auth_method == "body":
-		resp = send_with_body()
+		resp = record_attempt("request body", send_with_body(include_secret=True))
 	elif mal_client_auth_method == "basic":
-		resp = send_with_basic()
+		resp = record_attempt("HTTP Basic", send_with_basic())
 	else:
-		resp = send_with_body()
-		if resp.status_code == 401 and mal_client_secret:
-			resp = send_with_basic()
+		resp = record_attempt(
+			"request body (client id only)",
+			send_with_body(include_secret=False),
+		)
+		if not resp.ok and mal_client_secret:
+			resp = record_attempt(
+				"request body (client secret)",
+				send_with_body(include_secret=True),
+			)
+		if not resp.ok and mal_client_secret:
+			resp = record_attempt("HTTP Basic", send_with_basic())
 
 	if resp.status_code == 401:
 		print("Error: MAL refresh credentials were rejected.", file=sys.stderr)
+		print_token_attempts(attempts)
+		print(
+			"Fix: regenerate MAL_REFRESH_TOKEN with scripts/get_mal_tokens.py, "
+			"then update the GitHub Actions secret. Also verify MAL_CLIENT_ID "
+			"and MAL_CLIENT_SECRET belong to the same MAL API app.",
+			file=sys.stderr,
+		)
 		sys.exit(1)
 
 	if not resp.ok:
-		print(f"MAL token refresh error: {resp.status_code} {resp.text}", file=sys.stderr)
+		print(f"MAL token refresh error: {resp.status_code}", file=sys.stderr)
+		print_token_attempts(attempts)
 		sys.exit(1)
 
 	payload = resp.json()

@@ -82,14 +82,15 @@ def request_tokens(
 	auth_scheme: str,
 ) -> dict[str, str]:
 	"""Exchange a token request using one of MAL's documented client auth schemes."""
+	attempts: list[tuple[str, requests.Response]] = []
 	body_headers = {
 		"Accept": "application/json",
 		"Content-Type": "application/x-www-form-urlencoded",
 	}
 
-	def send_with_body() -> requests.Response:
+	def send_with_body(include_secret: bool) -> requests.Response:
 		body = {"client_id": client_id, **data}
-		if client_secret:
+		if include_secret and client_secret:
 			body["client_secret"] = client_secret
 		return requests.post(TOKEN_URL, data=body, headers=body_headers, timeout=30)
 
@@ -107,18 +108,56 @@ def request_tokens(
 			timeout=30,
 		)
 
+	def record_attempt(name: str, resp: requests.Response) -> requests.Response:
+		attempts.append((name, resp))
+		return resp
+
+	def token_error_detail(resp: requests.Response) -> str:
+		try:
+			payload = resp.json()
+		except ValueError:
+			text = resp.text.strip()
+			return text[:300] if text else "No response body."
+
+		parts = []
+		for key in ("error", "message", "hint", "error_description"):
+			value = payload.get(key)
+			if value:
+				parts.append(f"{key}={value!r}")
+
+		return "; ".join(parts) if parts else "No error detail in response."
+
 	# MAL docs describe both client-auth approaches. Try the request-body form first,
 	# then fall back to HTTP Basic when auto mode is selected.
 	if auth_scheme == "body":
-		resp = send_with_body()
+		resp = record_attempt("request body", send_with_body(include_secret=True))
 	elif auth_scheme == "basic":
-		resp = send_with_basic()
+		resp = record_attempt("HTTP Basic", send_with_basic())
 	else:
-		resp = send_with_body()
-		if resp.status_code == 401 and client_secret:
-			resp = send_with_basic()
+		resp = record_attempt(
+			"request body (client id only)",
+			send_with_body(include_secret=False),
+		)
+		if not resp.ok and client_secret:
+			resp = record_attempt(
+				"request body (client secret)",
+				send_with_body(include_secret=True),
+			)
+		if not resp.ok and client_secret:
+			resp = record_attempt("HTTP Basic", send_with_basic())
 
-	resp.raise_for_status()
+	try:
+		resp.raise_for_status()
+	except requests.HTTPError:
+		print("Token endpoint attempts:", file=sys.stderr)
+		for name, attempt_resp in attempts:
+			print(
+				f"- {name}: HTTP {attempt_resp.status_code}; "
+				f"{token_error_detail(attempt_resp)}",
+				file=sys.stderr,
+			)
+		raise
+
 	payload = resp.json()
 	return {
 		"access_token": payload.get("access_token", ""),
